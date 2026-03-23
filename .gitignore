@@ -1,8 +1,3 @@
-# Bỏ qua các file dữ liệu lớn và mô hình
-data/raw/*
-data/processed/*
-models/*
-
 # Bỏ qua môi trường ảo (Virtual Environment)
 venv/
 env/
