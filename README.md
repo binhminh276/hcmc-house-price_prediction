@@ -1,1 +1,9 @@
-# hcmc-house-price_prediction
+
+title: Hcmc-house-price Prediction
+emoji: 📈
+colorFrom: indigo
+colorTo: gray
+sdk: gradio
+sdk_version: 6.10.0
+app_file: app.py
+pinned: false
