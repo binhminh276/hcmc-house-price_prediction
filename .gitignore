@@ -7,3 +7,10 @@ env/
 .ipynb_checkpoints/
 __pycache__/
 .DS_Store
+
+
+data/
+models/
+
+git rm -r --cached data/
+git rm -r --cached models/
