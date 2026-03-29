@@ -1,117 +1,108 @@
-import gradio as gr
+import streamlit as st
 import pandas as pd
-import joblib
 import numpy as np
+import joblib
 
-KMEANS_MODEL_PATH = 'models\\clustering\\kmeans_model.pkl'
-SCALER_PATH = 'models\\clustering\\scaler.pkl'
+st.set_page_config(page_title="Dự đoán giá nhà TP.HCM", layout="wide")
 
-RF_RAW_PATH = 'models\\raw_model\\rf_pipeline.pkl'
-XGB_RAW_PATH = 'models\\raw_model\\xgb_pipeline.pkl'
-RF_TUNED_PATH = 'models\\tuned_model\\best_rf_model.pkl'
-XGB_TUNED_PATH = 'models\\tuned_model\\best_xgb_model.pkl'
+@st.cache_resource
+def load_all_models():
+    price_models = {
+        "Raw - Random Forest": joblib.load('models/raw_model/rf_pipeline.pkl'),
+        "Raw - XGBoost": joblib.load('models/raw_model/xgb_pipeline.pkl'),
+        "Tuned - Random Forest": joblib.load('models/tuned_model/best_rf_model.pkl'),
+        "Tuned - XGBoost": joblib.load('models/tuned_model/best_xgb_model.pkl')
+    }
+    return price_models
 
-DATASET_PATH = 'data\\processed\\processed_dataset_cleaned_new.csv'
+price_models = load_all_models()
 
-def load_models():
+def feature_engineering(data):
+    df_fe = data.copy()
+    
+    bins = [0, 30, 120, np.inf]
+    labels = ['Duoi_30', 'Tu_30_den_120', 'Tren_120']
+    df_fe['Phan_khuc_dien_tich'] = pd.cut(df_fe['Diện tích'], bins=bins, labels=labels)
+    
+    df_fe['Ty_le_Bath_Bed'] = df_fe['Số phòng tắm, vệ sinh'] / (df_fe['Số phòng ngủ'] + 1e-5)
+    df_fe['Loai_hinh_Quan'] = df_fe['Cao tầng'].astype(str) + '_' + df_fe['Quận']
+    
+    df_fe['Tong_tien_ich'] = df_fe['Gần bệnh viện'] + df_fe['Gần chợ'] + df_fe['Gần trường học']
+    
+    df_fe = df_fe.drop(columns=['Gần bệnh viện', 'Gần chợ', 'Gần trường học'])
+    
+    return df_fe
+
+st.title("🏡 Dự đoán giá Bất động sản tại TP.HCM")
+
+selected_model_name = st.selectbox(
+    "Chọn mô hình dự đoán:", 
+    options=list(price_models.keys())
+)
+
+st.divider()
+
+col1, col2 = st.columns(2)
+
+with col1:
+    dien_tich = st.number_input("Diện tích (m2)", min_value=1.0, value=50.0, step=1.0)
+    if dien_tich < 10:
+        st.warning("⚠️ Diện tích < 10m2 nằm ngoài phạm vi học của mô hình.")
+        
+    phong_ngu = st.number_input("Số phòng ngủ", min_value=1, value=2, step=1)
+    phong_tam = st.number_input("Số phòng tắm, vệ sinh", min_value=1, value=1, step=1)
+    cao_tang = st.number_input("Số tầng (Cao tầng)", min_value=1, value=1, step=1)
+
+with col2:
+    quan = st.selectbox("Quận/Huyện", ["Quận 1", "Quận 2", "Quận 3", "Quận 7", "Quận 9", "Bình Thạnh", "Thủ Đức", "Khác"]) 
+    
+    st.markdown("**Tiện ích xung quanh:**")
+    gan_bv = st.checkbox("Gần bệnh viện")
+    gan_cho = st.checkbox("Gần chợ")
+    gan_th = st.checkbox("Gần trường học")
+
+if st.button("Dự đoán giá", type="primary"):
+    input_data = {
+        'Diện tích': [dien_tich],
+        'Số phòng ngủ': [phong_ngu],
+        'Số phòng tắm, vệ sinh': [phong_tam],
+        'Cao tầng': [cao_tang],
+        'Quận': [quan],
+        'Gần bệnh viện': [int(gan_bv)],
+        'Gần chợ': [int(gan_cho)],
+        'Gần trường học': [int(gan_th)]
+    }
+    df_input = pd.DataFrame(input_data)
+    
     try:
-        kmeans = joblib.load(KMEANS_MODEL_PATH)
-        scaler = joblib.load(SCALER_PATH)
+        model_to_use = price_models[selected_model_name]
         
-        rf_raw = joblib.load(RF_RAW_PATH)
-        xgb_raw = joblib.load(XGB_RAW_PATH)
-        rf_tuned = joblib.load(RF_TUNED_PATH)
-        xgb_tuned = joblib.load(XGB_TUNED_PATH)
+        if "Raw" in selected_model_name:
+            pred_price = model_to_use.predict(df_input)[0]
+            real_price = pred_price
+            
+            st.info("🔄 Đang chạy luồng Raw: Dùng dữ liệu thô & Không áp dụng đảo Log.")
+            
+            with st.expander("Xem chi tiết dữ liệu đưa vào mô hình (Raw Data)"):
+                st.dataframe(df_input)
+
+        else:
+            df_processed = feature_engineering(df_input)
+            
+            log_price = model_to_use.predict(df_processed)[0]
+            real_price = np.expm1(log_price)
+            
+            st.info("⚙️ Đang chạy luồng Tuned: Đã áp dụng Feature Engineering & Đảo Log giá (expm1).")
+            
+            with st.expander("Xem chi tiết dữ liệu đưa vào mô hình (Sau Feature Engineering)"):
+                st.dataframe(df_processed)
         
-        print("Đã tải thành công tất cả 6 file mô hình!")
-        return kmeans, scaler, rf_raw, xgb_raw, rf_tuned, xgb_tuned
-    except Exception as e:
-        print(f"Lỗi khi tải mô hình: {e}")
-        return None, None, None, None, None, None
-
-kmeans_model, scaler, rf_raw, xgb_raw, rf_tuned, xgb_tuned = load_models()
-
-try:
-    df_sample = pd.read_csv(DATASET_PATH, sep=';', decimal=',', encoding='utf-8').head(500)
-    available_districts = sorted(df_sample['Quận'].dropna().unique().tolist())
-except Exception as e:
-    print(f"Lỗi tải dataset: {e}")
-    available_districts = ["Quận 1", "Quận 2", "Quận 3", "Quận 7", "Quận 9", "Bình Thạnh", "Gò Vấp"]
-
-def predict_all_models(district, area, price_range, beds, baths):
-    if kmeans_model is None:
-        return "Lỗi model", "Lỗi model", "Lỗi model", "Lỗi model", "Chưa tải được mô hình"
-
-    try:
-        # TÍNH CLUSTER
-        input_cluster_df = pd.DataFrame({
-            'Diện tích': [float(area)],
-            'Khoảng giá': [float(price_range)]
-        })
-        
-        input_scaled = scaler.transform(input_cluster_df)
-        cluster_id = kmeans_model.predict(input_scaled)[0]
-        cluster_info = f"Nhà thuộc Nhóm (Cluster): {cluster_id}"
-
-        # CHUẨN BỊ INPUT CHO MÔ HÌNH GIÁ
-        input_price_df = pd.DataFrame({
-            'Quận': [district],
-            'Diện tích': [float(area)],
-            'Khoảng giá': [float(price_range)],
-            'Số phòng ngủ': [float(beds)],
-            'Số phòng tắm, vệ sinh': [float(baths)],
-            'Cluster': [int(cluster_id)]
-        })
-
-        # CHẠY CẢ 4 MÔ HÌNH
-        res_rf_raw = f"{round(rf_raw.predict(input_price_df)[0], 2)} Tỷ"
-        res_xgb_raw = f"{round(xgb_raw.predict(input_price_df)[0], 2)} Tỷ"
-        res_rf_tuned = f"{round(rf_tuned.predict(input_price_df)[0], 2)} Tỷ"
-        res_xgb_tuned = f"{round(xgb_tuned.predict(input_price_df)[0], 2)} Tỷ"
-
-        return res_rf_raw, res_xgb_raw, res_rf_tuned, res_xgb_tuned, cluster_info
+        if real_price < 0:
+            st.error("Mô hình trả về giá trị âm do thông số nằm quá xa dữ liệu thực tế đã học!")
+        else:
+            formatted_price = "{:,.0f} VNĐ".format(real_price).replace(',', '.')
+            st.success("Hoàn tất tính toán!")
+            st.metric(label=f"Ước tính giá trị (theo {selected_model_name}):", value=formatted_price)
 
     except Exception as e:
-        error_msg = f"Lỗi: {e}"
-        return error_msg, error_msg, error_msg, error_msg, "Lỗi tính toán Cluster"
-
-with gr.Blocks(title="Demo 4 Mô Hình Giá Nhà TP.HCM", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🏢 So sánh Mô hình Dự báo Giá Nhà TP.HCM")
-    gr.Markdown("Nhập thông số căn nhà để so sánh kết quả dự đoán giữa các mô hình trước và sau khi tinh chỉnh (Tuning).")
-
-    with gr.Row():
-        # Cột nhập liệu
-        with gr.Column(scale=1):
-            gr.Markdown("### 🛠 Thông số đầu vào")
-            in_district = gr.Dropdown(choices=available_districts, label="Quận / Huyện", value=available_districts[0] if available_districts else None)
-            in_area = gr.Number(label="Diện tích (m2)", value=60)
-            in_price_range = gr.Number(label="Khoảng giá tham khảo", value=5.0) # Feature dùng cho K-Means
-            in_beds = gr.Slider(minimum=1, maximum=10, step=1, label="Số phòng ngủ", value=2)
-            in_baths = gr.Slider(minimum=1, maximum=10, step=1, label="Số phòng tắm, vệ sinh", value=2)
-            
-            predict_btn = gr.Button("🚀 Chạy tất cả mô hình", variant="primary")
-            
-            out_cluster = gr.Textbox(label="Thông tin Gom Cụm (Backend xử lý)", interactive=False)
-
-        # Cột kết quả
-        with gr.Column(scale=1):
-            gr.Markdown("### 📊 Kết quả so sánh")
-            
-            gr.Markdown("#### Mô hình Cơ bản (Raw)")
-            with gr.Row():
-                out_rf_raw = gr.Textbox(label="Random Forest (Raw)")
-                out_xgb_raw = gr.Textbox(label="XGBoost (Raw)")
-                
-            gr.Markdown("#### Mô hình Đã tinh chỉnh (Tuned)")
-            with gr.Row():
-                out_rf_tuned = gr.Textbox(label="Random Forest (Tuned)")
-                out_xgb_tuned = gr.Textbox(label="XGBoost (Tuned)")
-
-    predict_btn.click(
-        fn=predict_all_models,
-        inputs=[in_district, in_area, in_price_range, in_beds, in_baths],
-        outputs=[out_rf_raw, out_xgb_raw, out_rf_tuned, out_xgb_tuned, out_cluster]
-    )
-
-if __name__ == "__main__":
-    demo.launch()
+        st.error(f"Lỗi hệ thống: {e}")
