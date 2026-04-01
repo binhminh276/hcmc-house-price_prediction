@@ -4,9 +4,6 @@ import numpy as np
 import joblib
 import os
 
-# -----------------------------------------------------------------------------
-# 1. DỮ LIỆU TÂM CỤM (CENTROIDS) VÀ DANH MỤC
-# -----------------------------------------------------------------------------
 centroids = {
     0: {'Diện tích': 275.22, 'Số phòng ngủ': 6.72, 'Số phòng tắm, vệ sinh': 5.57, 'Mặt tiền': 0.53, 'Gần bệnh viện': 0.09, 'Gần chợ': 0.19, 'Gần trường học': 0.15, 'Cao tầng': 0.75, 'Quy hoạch': 0.05},
     1: {'Diện tích': 81.92, 'Số phòng ngủ': 3.38, 'Số phòng tắm, vệ sinh': 3.05, 'Mặt tiền': 0.30, 'Gần bệnh viện': 0.15, 'Gần chợ': 0.37, 'Gần trường học': 0.28, 'Cao tầng': 0.64, 'Quy hoạch': 0.05},
@@ -38,9 +35,6 @@ quan_phuong_map = {
 phap_ly_list = ['Sổ riêng', 'Sổ chung', 'Hợp đồng mua bán', 'Đang chờ sổ', 'Vi bằng / uỷ quyền', 'Không rõ']
 noi_that_list = ['Nội thất cơ bản', 'Full nội thất', 'Nội thất cao cấp', 'Không nội thất', 'Không rõ']
 
-# -----------------------------------------------------------------------------
-# 2. HÀM HỖ TRỢ (CLUSTERING & CẬP NHẬT GIAO DIỆN)
-# -----------------------------------------------------------------------------
 def find_nearest_cluster(numeric_features):
     """Tính khoảng cách Euclidean đến các tâm cụm và trả về cụm gần nhất"""
     min_dist = float('inf')
@@ -58,9 +52,6 @@ def cap_nhat_phuong(quan_duoc_chon):
     danh_sach_phuong = quan_phuong_map.get(quan_duoc_chon, [])
     return gr.update(choices=danh_sach_phuong, value=danh_sach_phuong[0] if danh_sach_phuong else None)
 
-# -----------------------------------------------------------------------------
-# 3. FEATURE ENGINEERING & PREDICTION
-# -----------------------------------------------------------------------------
 def feature_engineering(data):
     df_fe = data.copy()
     
@@ -86,14 +77,12 @@ def predict_price(model_name, dien_tich_str, so_phong_ngu, so_phong_tam, phap_ly
                   mat_tien, gan_bv, gan_cho, gan_th, cao_tang, quy_hoach, phuong, quan):
     
     try:
-        # Xử lý dấu phẩy thập phân (26,9 -> 26.9)
         dt_val = str(dien_tich_str).replace(',', '.')
         dien_tich = float(dt_val)
         if dien_tich <= 0: return "Lỗi", "Diện tích phải > 0"
     except:
         return "Lỗi định dạng", "Vui lòng nhập diện tích hợp lệ (VD: 26,9)"
 
-    # Lấy các giá trị số để tính cụm
     numeric_features = {
         'Diện tích': dien_tich,
         'Số phòng ngủ': so_phong_ngu,
@@ -106,10 +95,8 @@ def predict_price(model_name, dien_tich_str, so_phong_ngu, so_phong_tam, phap_ly
         'Quy hoạch': 1 if quy_hoach else 0
     }
     
-    # Tự động xác định cụm
     assigned_cluster = find_nearest_cluster(numeric_features)
 
-    # Tạo dataframe từ input hoàn chỉnh (có Cluster)
     input_df = pd.DataFrame([{
         **numeric_features,
         'Pháp lý': phap_ly,
@@ -119,10 +106,8 @@ def predict_price(model_name, dien_tich_str, so_phong_ngu, so_phong_tam, phap_ly
         'Cluster': assigned_cluster
     }])
     
-    # Load model dựa trên cấu trúc thư mục của bạn
     model_path = f"models/tuned_model/best_{'xgb' if model_name == 'XGBoost' else 'rf'}_model.pkl"
     if not os.path.exists(model_path):
-        # Fallback nếu không có folder tuned_model
         model_path = f"best_{'xgb' if model_name == 'XGBoost' else 'rf'}_model.pkl"
         if not os.path.exists(model_path):
             return "Lỗi", f"Không tìm thấy file {model_path}"
@@ -131,24 +116,20 @@ def predict_price(model_name, dien_tich_str, so_phong_ngu, so_phong_tam, phap_ly
         model = joblib.load(model_path)
         data_fe = feature_engineering(input_df)
         
-        # Dự đoán và biến đổi ngược log
         pred_log = model.predict(data_fe)[0]
-        pred_val = np.expm1(pred_log) # Kết quả là Tỷ VNĐ/m2
+        pred_val = np.expm1(pred_log) # Tỷ VNĐ/m2
         
         return f"{pred_val * 1000:,.1f} Triệu VNĐ/m²", f"{pred_val * dien_tich:,.3f} Tỷ VNĐ (Cụm: {assigned_cluster})"
     except Exception as e:
         return "Lỗi hệ thống", str(e)
 
-# -----------------------------------------------------------------------------
-# 4. GIAO DIỆN GRADIO
-# -----------------------------------------------------------------------------
 with gr.Blocks(title="Dự đoán Giá Nhà TP.HCM") as demo:
-    gr.Markdown("# 🏠 Hệ Thống Dự Đoán Giá Nhà (TP.HCM)")
+    gr.Markdown("# Hệ Thống Dự Đoán Giá Nhà (TP.HCM)")
     gr.Markdown("Xác định giá nhà dựa trên vị trí, diện tích và các tiện ích đi kèm.")
     
     with gr.Row():
         with gr.Column(scale=2):
-            gr.Markdown("### 📌 Thông tin nhà")
+            gr.Markdown("### Thông tin nhà")
             with gr.Row():
                 quan = gr.Dropdown(choices=list(quan_phuong_map.keys()), label="Quận", value="Quận 1")
                 phuong = gr.Dropdown(choices=quan_phuong_map["Quận 1"], label="Phường", value="Phường Bến Nghé")
@@ -164,7 +145,7 @@ with gr.Blocks(title="Dự đoán Giá Nhà TP.HCM") as demo:
                 noi_that = gr.Dropdown(choices=noi_that_list, label="Nội thất", value="Nội thất cơ bản")
             
         with gr.Column(scale=1):
-            gr.Markdown("### 📍 Tiện ích & Đặc điểm")
+            gr.Markdown("### Tiện ích & Đặc điểm")
             mat_tien = gr.Checkbox(label="Mặt tiền (Mặt phố)")
             gan_bv = gr.Checkbox(label="Gần bệnh viện")
             gan_cho = gr.Checkbox(label="Gần chợ")
@@ -176,7 +157,7 @@ with gr.Blocks(title="Dự đoán Giá Nhà TP.HCM") as demo:
 
     gr.Markdown("---")
     model_name = gr.Radio(choices=["XGBoost", "Random Forest"], label="Chọn Mô Hình Dự Đoán", value="XGBoost")
-    btn = gr.Button("🚀 DỰ ĐOÁN GIÁ", variant="primary", size="lg")
+    btn = gr.Button("DỰ ĐOÁN GIÁ", variant="primary", size="lg")
     
     with gr.Row():
         out_gia_m2 = gr.Textbox(label="Giá dự kiến trên 1m²", text_align="center")
