@@ -1,7 +1,7 @@
 # Dự Đoán Giá Bất Động Sản Tại TP.HCM
 
 ## Giới thiệu dự án
-Đây là đồ án môn học tập trung vào việc ứng dụng các kỹ thuật khai phá dữ liệu (Data Mining) và học máy (Machine Learning) để phân tích và dự đoán giá nhà đất trên địa bàn Thành phố Hồ Chí Minh.
+Đây là đồ án môn học tập trung vào việc ứng dụng các kỹ thuật phân tích dữ liệu và học máy (Machine Learning) để phân tích và dự đoán giá nhà đất trên địa bàn Thành phố Hồ Chí Minh.
 
 Mục tiêu của dự án là xây dựng một quy trình hoàn chỉnh từ khâu thu thập dữ liệu thô trên nền tảng web, tiền xử lý, phân tích khám phá (EDA), cho đến trực quan hóa dữ liệu qua dashboard và triển khai mô hình học máy thực tế.
 
