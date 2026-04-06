@@ -18,7 +18,7 @@ Dự án được chia thành các giai đoạn chính sau:
 2. **Tiền xử lý dữ liệu (Data Cleaning):**
    * Xử lý các giá trị bị thiếu (missing values) và nhiễu.
    * Chuẩn hóa các định dạng văn bản và chuyển đổi kiểu dữ liệu phù hợp cho việc phân tích.
-
+   * Phân tách column mô tả để thêm đặc trưng phân tích.
 3. **Phân tích khám phá dữ liệu (EDA - Exploratory Data Analysis):**
    * Khám phá sự phân bố của giá bất động sản theo từng khu vực tại TP.HCM.
    * Tìm ra mối tương quan giữa các đặc trưng đầu vào và giá nhà để chọn lọc các biến quan trọng nhất.
@@ -27,7 +27,7 @@ Dự án được chia thành các giai đoạn chính sau:
    * Xây dựng báo cáo trực quan (dashboard) để cung cấp cái nhìn tổng quan và sâu sắc nhất về thị trường bất động sản dựa trên tập dữ liệu đã thu thập.
 
 5. **Xây dựng và triển khai mô hình (Modeling & Deployment):**
-   * Áp dụng các thuật toán học máy (bao gồm cả phân cụm K-means như trong dữ liệu đã xử lý) để dự đoán mức giá.
+   * Áp dụng các thuật toán học máy là Random forest và XGBoost (bao gồm cả phân cụm K-means như trong dữ liệu đã xử lý) để dự đoán mức giá.
    * Triển khai ứng dụng hoàn chỉnh để người dùng cuối có thể tương tác.
 
 ## Thành viên nhóm
